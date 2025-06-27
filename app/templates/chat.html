@@ -1,0 +1,146 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Chat Room</title>
+  <style>
+    #messages p.system {
+      font-style: italic;
+      color: gray;
+    }
+    #messages p.join {
+      color: green;
+    }
+    #messages p.leave {
+      color: red;
+    }
+    #messages {
+      border: 1px solid #ccc;
+      padding: 10px;
+      height: 300px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Chat Room</h2>
+  <h3>Online Users:</h3>
+  <ul id="online-users"></ul>
+
+  <div id="messages"></div>
+
+
+  <input id="msgInput" type="text" placeholder="Type your message..." />
+  <button onclick="sendMessage()">Send</button>
+
+  <button id="logout-btn" style="float: right; margin-bottom: 10px;">Logout</button>
+
+
+  <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+  <script>
+    const token = localStorage.getItem("jwt");
+    const channelId = 1;
+    const socket = io("http://localhost:5000", { auth: { token } });
+
+    socket.on("connect", () => {
+      socket.emit("join", { channel_id: channelId, token });
+      socket.emit("get_history", { token, channel_id: channelId });
+    });
+
+    socket.on("chat_history", (history) => {
+      const messagesDiv = document.getElementById("messages");
+      history.forEach(msg => {
+        const p = document.createElement("p");
+        p.textContent = `[${msg.timestamp}] ${msg.user}: ${msg.message}`;
+        messagesDiv.appendChild(p);
+      });
+    });
+
+    socket.on("receive_message", (msg) => {
+      const messagesDiv = document.getElementById("messages");
+      const p = document.createElement("p");
+      p.textContent = `[${msg.timestamp}] ${msg.user}: ${msg.message}`;
+      messagesDiv.appendChild(p);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
+
+    socket.on("user_joined", (data) => {
+      const p = document.createElement("p");
+      p.innerText = `[System] ${data.email} joined the room`;
+      p.classList.add("system", "join");
+      document.getElementById("messages").appendChild(p);
+    });
+
+    socket.on("user_left", (data) => {
+      const p = document.createElement("p");
+      p.innerText = `[System] ${data.email} left the room`;
+      p.classList.add("system", "leave");
+      document.getElementById("messages").appendChild(p);
+    });
+
+    socket.on("online_users", (users) => {
+      const userList = document.getElementById("online-users");
+      userList.innerHTML = "";  // Clear existing
+      users.forEach(email => {
+      const li = document.createElement("li");
+      li.textContent = email;
+      userList.appendChild(li);
+    });});
+
+
+    socket.on("user_left", (data) => {
+  const msg = document.createElement("p");
+  msg.style.color = "red";
+  msg.innerText = `${data.message} (Last seen: ${data.last_seen})`;
+  document.getElementById("messages").appendChild(msg);
+});
+
+
+socket.emit('join_channel', { email, channel_name });
+
+sendButton.onclick = () => {
+  socket.emit('send_channel_message', {
+    email,
+    message: messageInput.value,
+    channel_name: document.getElementById("channelSelect").value
+  });
+};
+
+
+document.getElementById('logout-btn').addEventListener('click', () => {
+  // Clear JWT token or auth data from storage
+  localStorage.removeItem('token');
+
+  // Inform server about logout (optional)
+  socket.emit('logout');
+
+  // Redirect or update UI to logged-out state
+  window.location.href = '/login'; // or wherever your login page is
+});
+
+
+
+    function sendMessage() {
+      const msg = document.getElementById("msgInput").value;
+      if (!msg.trim()) return;
+      socket.emit("send_message", {
+        channel_id: channelId,
+        message: msg,
+        token
+      });
+      document.getElementById("msgInput").value = "";
+    }
+
+
+    // Optional: Inform server when user leaves
+    window.addEventListener("beforeunload", () => {
+      socket.emit("leave", { channel_id: channelId, token });
+    });
+  </script>
+</body>
+</html>
+
+
